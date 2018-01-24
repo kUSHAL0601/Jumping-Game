@@ -13,6 +13,9 @@ GLFWwindow *window;
 /**************************
 * Customizable functions *
 **************************/
+color_t COLOR_OBSTACLE = { 153,102,255 };
+
+color_t COLOR_MINE = { 255, 0, 102 };
 
 Ball ball;
 Ground ground;
@@ -26,6 +29,9 @@ float initL=0.0;
 float initR=0.0;
 float initS=0.0;
 int no_obstacles=50;
+int no_mines=10;
+int mine_lives=2;
+
 int obsflag=0;
 int groundflag=0;
 Obstacle obstacles[50];
@@ -33,6 +39,13 @@ float obstaclesOrigin[50];
 int collision_flag[50]={0};
 /* Render the scene with openGL */
 /* Edit this function according to your assignment */
+int firstjump=0;
+int jumps_avail=3;
+float maxReached;
+
+Obstacle mines[10];
+float minesOrigin[10];
+
 
 void floatsleep ( float delay)
 {
@@ -47,6 +60,7 @@ void floatsleep ( float delay)
 }
 
 void draw() {
+
     // clear the color and depth in the frame buffer
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -82,12 +96,21 @@ void draw() {
 //    obstacles[1].draw(VP);
     for(int i=0;i<no_obstacles;i++)
         obstacles[i].draw(VP);
+    for(int i=0;i<no_mines;i++)
+        mines[i].draw(VP);
 }
 
 void foo(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if(key==GLFW_KEY_SPACE && action==GLFW_PRESS)
+    if(key==GLFW_KEY_SPACE && action==GLFW_PRESS && firstjump==0)
     {
+        ball.speedy=-0.05;
+        initS=ball.position.y;
+        moveUp=1;
+    }
+    if(key==GLFW_KEY_SPACE && action==GLFW_PRESS && firstjump==1 && jumps_avail)
+    {
+        jumps_avail--;
         ball.speedy=-0.05;
         initS=ball.position.y;
         moveUp=1;
@@ -124,12 +147,21 @@ void tick_elements() {
     if(ball.position.y<=screen_center_y && ball.position.y>=1.5){screen_center_y=ball.position.y;reset_screen();}
     for(int i=0;i<no_obstacles;i++)
         obstacles[i].tick();
+    for(int i=0;i<no_mines;i++)
+        mines[i].tick();
     //obstacles[1].tick();
     for(int i=0;i<no_obstacles;i++)
     {
     if(obstacles[i].position.x<=-3.2 || obstacles[i].position.x>=3.2 || abs(obstacles[i].position.x-obstaclesOrigin[i])>=1.25)
     {
         obstacles[i].speed*=-1;
+    }
+    }
+    for(int i=0;i<no_mines;i++)
+    {
+    if(mines[i].position.x<=-3.2 || mines[i].position.x>=3.2 || abs(mines[i].position.x-minesOrigin[i])>=1.25)
+    {
+        mines[i].speed*=-1;
     }
     }
     if(moveLeft==1 && initL-0.8>=ball.position.x)
@@ -154,11 +186,17 @@ void tick_elements() {
     if(detect_collision(ball.bounding_box(),obstacles[i].bounding_box()) && ball.speedy>=0)
     {
         //printf("Collide");
-        ball.speedy=0;
-        ball.speedx=obstacles[i].speed;
+//        ball.speedy=0;
+//        ball.speedx=obstacles[i].speed;
         obsflag=1;
         groundflag=0;
         collision_flag[i]=1;
+        firstjump=1;
+        ball.speedy=-0.05;
+        initS=ball.position.y;
+        moveUp=1;
+        obstacles[i].set_position(-5.0,-5.0);
+        maxReached=(float)i;
         break;
     }
     else
@@ -166,6 +204,32 @@ void tick_elements() {
         obsflag=0;
     }
     }
+
+    for(int i=0;i<no_mines;i++)
+    {
+    if(detect_collision(ball.bounding_box(),mines[i].bounding_box()) && ball.speedy>=0)
+    {
+        //printf("Collide");
+//        ball.speedy=0;
+//        ball.speedx=mines[i].speed;
+        obsflag=1;
+        groundflag=0;
+        collision_flag[i]=1;
+        firstjump=1;
+        ball.speedy=-0.05;
+        initS=ball.position.y;
+        moveUp=1;
+        mines[i].set_position(-5.0,-5.0);
+        maxReached=(float)i;
+        mine_lives--;
+        break;
+    }
+    else
+    {
+        obsflag=0;
+    }
+    }
+
     if (detect_collision_ground()) {
         moveLeft=1;
         ball.speedx=0;
@@ -200,6 +264,25 @@ void tick_elements() {
         ball.speedx=0;
         ball.speedy=0.03;
     }
+    if(ball.position.y<=-2.0+1.9*(maxReached-2.5))
+    {
+        int score=0;
+        for(int i=0;i<no_obstacles;i++)
+            if(collision_flag[i]==1)score++;
+        printf("%d\n",score);
+        //floatsleep(0.25);
+        quit(window);
+    }
+    if(mine_lives==0)
+    {
+        int score=0;
+        for(int i=0;i<no_obstacles;i++)
+            if(collision_flag[i]==1)score++;
+        printf("%d\n",score);
+        floatsleep(0.6);
+        quit(window);
+    }
+
 }
 
 /* Initialize the OpenGL rendering properties */
@@ -220,15 +303,34 @@ void initGL(GLFWwindow *window, int width, int height) {
 
     srand((unsigned int)time(NULL));
     float yinitial=-2.0;
-    for(int i=0;i<50;i++)
+    for(int i=0;i<no_obstacles;i++)
     {
-        float x = (float)rand()/(float)(RAND_MAX/6.0);
-        obstacles[i] = Obstacle(x-3.0,yinitial,COLOR_BLACK);
-        obstaclesOrigin[i]=x-3.0;
+        float x = (float)rand()/(float)(RAND_MAX/5.0);
+        if(i==0)
+        {
+            while(x>=0.8 || x<=-0.8)x = (float)rand()/(float)(RAND_MAX/5.0);
+        }
+        obstacles[i] = Obstacle(x-2.5,yinitial,COLOR_OBSTACLE);
+        obstaclesOrigin[i]=x-2.5;
         float spd = (float)rand()/(float)(RAND_MAX/0.03);
         obstacles[i].speed=spd;
         yinitial+=1.9;
     }
+    yinitial=5.0;
+    for(int i=0;i<no_mines;i++)
+    {
+        float x = (float)rand()/(float)(RAND_MAX/5.0);
+        if(i==0)
+        {
+            while(x>=0.8 || x<=-0.8)x = (float)rand()/(float)(RAND_MAX/5.0);
+        }
+        mines[i] = Obstacle(x-2.5,yinitial,COLOR_MINE);
+        minesOrigin[i]=x-2.5;
+        float spd = (float)rand()/(float)(RAND_MAX/0.03);
+        mines[i].speed=spd;
+        yinitial+=3.0;
+    }
+
 
     // Create and compile our GLSL program from the shaders
     programID = LoadShaders("Sample_GL.vert", "Sample_GL.frag");
