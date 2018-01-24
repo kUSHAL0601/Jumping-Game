@@ -3,6 +3,8 @@
 #include "ball.h"
 #include "ground.h"
 #include "obstacle.h"
+#include "mine.h"
+
 #include "time.h"
 using namespace std;
 
@@ -14,13 +16,14 @@ GLFWwindow *window;
 * Customizable functions *
 **************************/
 color_t COLOR_OBSTACLE = { 153,102,255 };
-
+color_t COLOR_TRAMPOLINE = {102, 153, 255 };
 color_t COLOR_MINE = { 255, 0, 102 };
 
 Ball ball;
 Ground ground;
 float screen_zoom = 1, screen_center_x = 0, screen_center_y = 0;
 Timer t60(1.0 / 60);
+int i1,i2,i3;
 int moveLeft=0;
 int moveRight=0;
 int moveUp=0;
@@ -30,7 +33,8 @@ float initR=0.0;
 float initS=0.0;
 int no_obstacles=50;
 int no_mines=10;
-int mine_lives=2;
+int mine_lives=3;
+int jumplimit=2.0;
 
 int obsflag=0;
 int groundflag=0;
@@ -43,7 +47,7 @@ int firstjump=0;
 int jumps_avail=3;
 float maxReached;
 
-Obstacle mines[10];
+Mine mines[10];
 float minesOrigin[10];
 
 
@@ -174,7 +178,7 @@ void tick_elements() {
         moveRight=0;
         ball.speedx=0;
     }
-    if(moveUp==1 && initS+2.0<=ball.position.y)
+    if(moveUp==1 && initS+jumplimit<=ball.position.y)
     {
         moveUp=0;
         ball.speedy=-1.0*ball.speedy;
@@ -196,6 +200,19 @@ void tick_elements() {
         initS=ball.position.y;
         moveUp=1;
         obstacles[i].set_position(-5.0,-5.0);
+        if(i==i1-1||i==i2+14||i==i3+29)
+        {
+            float theta=obstacles[i].rotation;
+            float osx=ball.speedx;
+            float osy=ball.speedy;
+            ball.speedx=osx*(1-tan(M_PI_2-(theta*M_PI/180)))+osy*(-1+tan((theta*M_PI/180)));
+            ball.speedy=osx*(1+tan(M_PI_2-(theta*M_PI/180)))+osy*(1+tan((theta*M_PI/180)));
+            jumplimit=5.0;
+        }
+        else
+        {
+            jumplimit=2.0;
+        }
         maxReached=(float)i;
         break;
     }
@@ -302,6 +319,10 @@ void initGL(GLFWwindow *window, int width, int height) {
 //    obstacles[1].speed=0.02;
 
     srand((unsigned int)time(NULL));
+    i1=(int)((float)rand()/(float)(RAND_MAX/15.0));
+    i2=(int)((float)rand()/(float)(RAND_MAX/15.0));
+    i3=(int)((float)rand()/(float)(RAND_MAX/15.0));
+    i1=1;
     float yinitial=-2.0;
     for(int i=0;i<no_obstacles;i++)
     {
@@ -310,7 +331,16 @@ void initGL(GLFWwindow *window, int width, int height) {
         {
             while(x>=0.8 || x<=-0.8)x = (float)rand()/(float)(RAND_MAX/5.0);
         }
-        obstacles[i] = Obstacle(x-2.5,yinitial,COLOR_OBSTACLE);
+        if(i==i1-1||i==i2+14||i==29+i3)
+        {
+            obstacles[i] = Obstacle(x-2.5,yinitial,COLOR_TRAMPOLINE);
+            if(x-2.5>=0)obstacles[i].rotation=-22.5;
+            else obstacles[i].rotation=22.5;
+        }
+        else
+        {
+            obstacles[i] = Obstacle(x-2.5,yinitial,COLOR_OBSTACLE);
+        }
         obstaclesOrigin[i]=x-2.5;
         float spd = (float)rand()/(float)(RAND_MAX/0.03);
         obstacles[i].speed=spd;
@@ -324,7 +354,7 @@ void initGL(GLFWwindow *window, int width, int height) {
         {
             while(x>=0.8 || x<=-0.8)x = (float)rand()/(float)(RAND_MAX/5.0);
         }
-        mines[i] = Obstacle(x-2.5,yinitial,COLOR_MINE);
+        mines[i] = Mine(x-2.5,yinitial,COLOR_MINE);
         minesOrigin[i]=x-2.5;
         float spd = (float)rand()/(float)(RAND_MAX/0.03);
         mines[i].speed=spd;
