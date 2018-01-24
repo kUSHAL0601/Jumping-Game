@@ -4,6 +4,7 @@
 #include "ground.h"
 #include "obstacle.h"
 #include "mine.h"
+#include"magnet.h"
 
 #include "time.h"
 using namespace std;
@@ -50,6 +51,7 @@ float maxReached;
 Mine mines[10];
 float minesOrigin[10];
 
+Magnet mag1;
 
 void floatsleep ( float delay)
 {
@@ -96,6 +98,7 @@ void draw() {
     // Scene render
     ball.draw(VP);
     ground.draw(VP);
+    mag1.draw(VP);
 //    obstacles[0].draw(VP);
 //    obstacles[1].draw(VP);
     for(int i=0;i<no_obstacles;i++)
@@ -311,6 +314,7 @@ void initGL(GLFWwindow *window, int width, int height) {
     ball       = Ball(0, -1.5, COLOR_RED);
     ball.speedy=0.03;
     ground = Ground(0,0,COLOR_GREEN);
+    mag1=Magnet(-4,3,COLOR_BLACK);
 //    obstacles[0] = Obstacle(-1.5,-2.0,COLOR_BLACK);
 //    obstaclesOrigin[0]=-1.5;
 //    obstacles[0].speed=0.02;
@@ -322,7 +326,7 @@ void initGL(GLFWwindow *window, int width, int height) {
     i1=(int)((float)rand()/(float)(RAND_MAX/15.0));
     i2=(int)((float)rand()/(float)(RAND_MAX/15.0));
     i3=(int)((float)rand()/(float)(RAND_MAX/15.0));
-    i1=1;
+    //i1=1;
     float yinitial=-2.0;
     for(int i=0;i<no_obstacles;i++)
     {
@@ -334,8 +338,8 @@ void initGL(GLFWwindow *window, int width, int height) {
         if(i==i1-1||i==i2+14||i==29+i3)
         {
             obstacles[i] = Obstacle(x-2.5,yinitial,COLOR_TRAMPOLINE);
-            if(x-2.5>=0)obstacles[i].rotation=-22.5;
-            else obstacles[i].rotation=22.5;
+            if(x-2.5>=0)obstacles[i].rotation=22.5;
+            else obstacles[i].rotation=-22.5;
         }
         else
         {
