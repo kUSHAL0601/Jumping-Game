@@ -7,6 +7,7 @@
 #include"magnet.h"
 
 #include "time.h"
+
 using namespace std;
 
 GLMatrices Matrices;
@@ -51,7 +52,8 @@ float maxReached;
 Mine mines[10];
 float minesOrigin[10];
 
-Magnet mag1;
+Magnet mag1,mag2,mag3;
+float mag1i,mag2i,mag3i;
 
 void floatsleep ( float delay)
 {
@@ -99,6 +101,8 @@ void draw() {
     ball.draw(VP);
     ground.draw(VP);
     mag1.draw(VP);
+    mag2.draw(VP);
+    mag3.draw(VP);
 //    obstacles[0].draw(VP);
 //    obstacles[1].draw(VP);
     for(int i=0;i<no_obstacles;i++)
@@ -224,6 +228,18 @@ void tick_elements() {
         obsflag=0;
     }
     }
+    if(abs(ball.position.y-mag1i)<=0.7)
+    {
+        ball.speedx=0.13/(abs(ball.position.x-mag1.position.x));
+    }
+    else if(abs(ball.position.y-mag2i)<=0.7)
+    {
+        ball.speedx=0.13/(abs(ball.position.x-mag2.position.x));
+    }
+    else if(abs(ball.position.y-mag3i)<=0.7)
+    {
+        ball.speedx=0.13/(abs(ball.position.x-mag3.position.x));
+    }
 
     for(int i=0;i<no_mines;i++)
     {
@@ -310,11 +326,16 @@ void tick_elements() {
 void initGL(GLFWwindow *window, int width, int height) {
     /* Objects should be created before any other gl function and shaders */
     // Create the models
-
+    srand((unsigned int)time(NULL));
     ball       = Ball(0, -1.5, COLOR_RED);
     ball.speedy=0.03;
     ground = Ground(0,0,COLOR_GREEN);
-    mag1=Magnet(-4,3,COLOR_BLACK);
+    mag1i=(float)rand()/(float)(RAND_MAX/(-2.0+(1.9*(float)no_obstacles)));
+    mag2i=(float)rand()/(float)(RAND_MAX/(-2.0+(1.9*(float)no_obstacles)));
+    mag3i=(float)rand()/(float)(RAND_MAX/(-2.0+(1.9*(float)no_obstacles)));
+    mag1=Magnet(-4,mag1i,COLOR_BLACK);
+    mag2=Magnet(-4,mag2i,COLOR_BLACK);
+    mag3=Magnet(-4,mag3i,COLOR_BLACK);
 //    obstacles[0] = Obstacle(-1.5,-2.0,COLOR_BLACK);
 //    obstaclesOrigin[0]=-1.5;
 //    obstacles[0].speed=0.02;
@@ -322,7 +343,6 @@ void initGL(GLFWwindow *window, int width, int height) {
 //    obstaclesOrigin[1]=2.5;
 //    obstacles[1].speed=0.02;
 
-    srand((unsigned int)time(NULL));
     i1=(int)((float)rand()/(float)(RAND_MAX/15.0));
     i2=(int)((float)rand()/(float)(RAND_MAX/15.0));
     i3=(int)((float)rand()/(float)(RAND_MAX/15.0));
@@ -335,6 +355,7 @@ void initGL(GLFWwindow *window, int width, int height) {
         {
             while(x>=0.8 || x<=-0.8)x = (float)rand()/(float)(RAND_MAX/5.0);
         }
+        if(abs(yinitial-mag1i)<=0.7||abs(yinitial-mag2i)<=0.7||abs(yinitial-mag3i)<=0.7)x=2.5+(float)rand()/(float)(RAND_MAX);
         if(i==i1-1||i==i2+14||i==29+i3)
         {
             obstacles[i] = Obstacle(x-2.5,yinitial,COLOR_TRAMPOLINE);
@@ -358,6 +379,8 @@ void initGL(GLFWwindow *window, int width, int height) {
         {
             while(x>=0.8 || x<=-0.8)x = (float)rand()/(float)(RAND_MAX/5.0);
         }
+        int ni=(yinitial+2.0)/1.9;
+        if((yinitial+2.0-ni*1.9)<=0.2)yinitial=(float)ni*1.9-0.2-2.0;
         mines[i] = Mine(x-2.5,yinitial,COLOR_MINE);
         minesOrigin[i]=x-2.5;
         float spd = (float)rand()/(float)(RAND_MAX/0.03);
