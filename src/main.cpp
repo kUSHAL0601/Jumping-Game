@@ -4,22 +4,23 @@
 #include "ground.h"
 #include "obstacle.h"
 #include "mine.h"
-#include"magnet.h"
+#include "magnet.h"
 
 #include "time.h"
-
+#include "string.h"
 using namespace std;
 
 GLMatrices Matrices;
 GLuint     programID;
 GLFWwindow *window;
-
+glm::mat4 VP;
 /**************************
 * Customizable functions *
 **************************/
 color_t COLOR_OBSTACLE = { 153,102,255 };
 color_t COLOR_TRAMPOLINE = {102, 153, 255 };
 color_t COLOR_MINE = { 255, 0, 102 };
+color_t COLOR_WHITE = {255,255,255};
 
 Ball ball;
 Ground ground;
@@ -34,26 +35,28 @@ float initL=0.0;
 float initR=0.0;
 float initS=0.0;
 int no_obstacles=50;
-int no_mines=10;
+int no_mines=20;
+int no_magnets=8;
 int mine_lives=3;
-int jumplimit=2.0;
+int globalScore=0;
 
 int obsflag=0;
 int groundflag=0;
 Obstacle obstacles[50];
 float obstaclesOrigin[50];
 int collision_flag[50]={0};
-/* Render the scene with openGL */
-/* Edit this function according to your assignment */
 int firstjump=0;
-int jumps_avail=3;
+int jumps_avail=5;
 float maxReached;
 
-Mine mines[10];
-float minesOrigin[10];
+Mine mines[20];
+float minesOrigin[20];
 
 Magnet mag1,mag2,mag3;
 float mag1i,mag2i,mag3i;
+
+Magnet magnets[8];
+float magnetsOrigin[8];
 
 void floatsleep ( float delay)
 {
@@ -90,7 +93,7 @@ void draw() {
 
     // Compute ViewProject matrix as view/camera might not be changed for this frame (basic scenario)
     // Don't change unless you are sure!!
-    glm::mat4 VP = Matrices.projection * Matrices.view;
+    VP = Matrices.projection * Matrices.view;
 
     // Send our transformation to the currently bound shader, in the "MVP" uniform
     // For each model you render, since the MVP will be different (at least the M part)
@@ -100,11 +103,8 @@ void draw() {
     // Scene render
     ball.draw(VP);
     ground.draw(VP);
-    mag1.draw(VP);
-    mag2.draw(VP);
-    mag3.draw(VP);
-//    obstacles[0].draw(VP);
-//    obstacles[1].draw(VP);
+    for(int i=0;i<no_magnets;i++)
+        magnets[i].draw(VP);
     for(int i=0;i<no_obstacles;i++)
         obstacles[i].draw(VP);
     for(int i=0;i<no_mines;i++)
@@ -115,15 +115,17 @@ void foo(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if(key==GLFW_KEY_SPACE && action==GLFW_PRESS && firstjump==0)
     {
-        ball.speedy=-0.05;
-        initS=ball.position.y;
+        ball.speedy=-0.065;
+        ball.accelaration=-0.001;
+        //initS=ball.position.y;
         moveUp=1;
     }
     if(key==GLFW_KEY_SPACE && action==GLFW_PRESS && firstjump==1 && jumps_avail)
     {
         jumps_avail--;
-        ball.speedy=-0.05;
-        initS=ball.position.y;
+        ball.speedy=-0.07;
+        ball.accelaration=-0.001;
+        //initS=ball.position.y;
         moveUp=1;
     }
 //    else if(key==GLFW_KEY_RIGHT && action==GLFW_PRESS)
@@ -153,6 +155,8 @@ void foo(GLFWwindow* window, int key, int scancode, int action, int mods)
 }
 
 void tick_elements() {
+    if(ball.speedx>0)ball.rotation+=22.5;
+    if(ball.speedx<0)ball.rotation-=22.5;
     ball.tick();
     if(ball.position.y>=screen_center_y){screen_center_y=ball.position.y;reset_screen();}
     if(ball.position.y<=screen_center_y && ball.position.y>=1.5){screen_center_y=ball.position.y;reset_screen();}
@@ -163,102 +167,96 @@ void tick_elements() {
     //obstacles[1].tick();
     for(int i=0;i<no_obstacles;i++)
     {
-    if(obstacles[i].position.x<=-3.2 || obstacles[i].position.x>=3.2 || abs(obstacles[i].position.x-obstaclesOrigin[i])>=1.25)
+    if(obstacles[i].position.x<=-3.2 || obstacles[i].position.x>=3.2 || abs(obstacles[i].position.x-obstaclesOrigin[i])>=1)
     {
         obstacles[i].speed*=-1;
     }
     }
     for(int i=0;i<no_mines;i++)
     {
-    if(mines[i].position.x<=-3.2 || mines[i].position.x>=3.2 || abs(mines[i].position.x-minesOrigin[i])>=1.25)
+    if(mines[i].position.x<=-3.2 || mines[i].position.x>=3.2 || abs(mines[i].position.x-minesOrigin[i])>=1)
     {
         mines[i].speed*=-1;
     }
     }
-    if(moveLeft==1 && initL-0.8>=ball.position.x)
-    {
-        moveLeft=0;
-        ball.speedx=0;
-    }
-    if(moveRight==1 && initR+0.8<=ball.position.x)
-    {
-        moveRight=0;
-        ball.speedx=0;
-    }
-    if(moveUp==1 && initS+jumplimit<=ball.position.y)
-    {
-        moveUp=0;
-        ball.speedy=-1.0*ball.speedy;
-    }
     int gcoll=0;
-//    if(detect_collision(ball.bounding_box(),obstacles[0].bounding_box()) && ball.position.y>obstacles[0].position.y)
     for(int i=0;i<no_obstacles;i++)
     {
-    if(detect_collision(ball.bounding_box(),obstacles[i].bounding_box()) && ball.speedy>=0)
+    if(detect_collision(ball.bounding_box(),obstacles[i].bounding_box()))
     {
-        //printf("Collide");
-//        ball.speedy=0;
-//        ball.speedx=obstacles[i].speed;
-        obsflag=1;
-        groundflag=0;
-        collision_flag[i]=1;
-        firstjump=1;
-        ball.speedy=-0.05;
-        initS=ball.position.y;
-        moveUp=1;
-        obstacles[i].set_position(-5.0,-5.0);
-        if(i==i1-1||i==i2+14||i==i3+29)
+        if(ball.position.y-obstacles[i].position.y<=0.4 && ball.position.y-obstacles[i].position.y>=0)
         {
-            float theta=obstacles[i].rotation;
-            float osx=ball.speedx;
-            float osy=ball.speedy;
-            ball.speedx=osx*(1-tan(M_PI_2-(theta*M_PI/180)))+osy*(-1+tan((theta*M_PI/180)));
-            ball.speedy=osx*(1+tan(M_PI_2-(theta*M_PI/180)))+osy*(1+tan((theta*M_PI/180)));
-            jumplimit=5.0;
-        }
-        else
+            obsflag=1;
+            groundflag=0;
+            collision_flag[i]=1;
+            firstjump=1;
+            ball.speedy=-0.07;
+            //initS=ball.position.y;
+            ball.accelaration=-0.001;
+            moveUp=1;
+            obstacles[i].set_position(-5.0,-5.0);
+            globalScore++;
+            if(i==i1-1||i==i2+14||i==i3+29)
+            {
+                float theta=obstacles[i].rotation;
+                float osx=ball.speedx;
+                float osy=ball.speedy;
+                ball.speedx=osx*(1-tan(M_PI_2-(theta*M_PI/180)))+osy*(-1+tan((theta*M_PI/180)));
+                ball.speedy=(osx*(1+tan(M_PI_2-(theta*M_PI/180)))+osy*(1+tan((theta*M_PI/180))))-0.03;
+            }
+            else
+            {
+                ball.speedy=-0.07;
+            }
+            maxReached=(float)i;
+            break;
+         }
+        else if(ball.position.y-obstacles[i].position.y>=-0.4)
         {
-            jumplimit=2.0;
+            ball.position.y-=0.01;
+            ball.speedy=0;
+            ball.accelaration=-0.001;
+            break;
         }
-        maxReached=(float)i;
-        break;
     }
     else
     {
         obsflag=0;
     }
     }
-    if(abs(ball.position.y-mag1i)<=0.7)
+    for(int i=0;i<no_magnets;i++)
     {
-        ball.speedx=0.13/(abs(ball.position.x-mag1.position.x));
+        if(abs(ball.position.y-magnetsOrigin[i])<=0.7)
+        {
+            ball.speedx=0.13/(abs(ball.position.x-magnets[i].position.x));
+        }
     }
-    else if(abs(ball.position.y-mag2i)<=0.7)
-    {
-        ball.speedx=0.13/(abs(ball.position.x-mag2.position.x));
-    }
-    else if(abs(ball.position.y-mag3i)<=0.7)
-    {
-        ball.speedx=0.13/(abs(ball.position.x-mag3.position.x));
-    }
-
     for(int i=0;i<no_mines;i++)
     {
-    if(detect_collision(ball.bounding_box(),mines[i].bounding_box()) && ball.speedy>=0)
+    if(detect_collision(ball.bounding_box(),mines[i].bounding_box()))
     {
-        //printf("Collide");
-//        ball.speedy=0;
-//        ball.speedx=mines[i].speed;
-        obsflag=1;
-        groundflag=0;
-        collision_flag[i]=1;
-        firstjump=1;
-        ball.speedy=-0.05;
-        initS=ball.position.y;
-        moveUp=1;
-        mines[i].set_position(-5.0,-5.0);
-        maxReached=(float)i;
-        mine_lives--;
-        break;
+        if(ball.position.y-mines[i].position.y<=0.4 && ball.position.y-mines[i].position.y>=0)
+        {
+            obsflag=1;
+            groundflag=0;
+            collision_flag[i]=1;
+            firstjump=1;
+            ball.speedy=-0.07;
+           // initS=ball.position.y;
+            ball.accelaration=-0.001;
+            moveUp=1;
+            mines[i].set_position(-5.0,-5.0);
+            mine_lives--;
+            maxReached=(float)i;
+            break;
+        }
+        else if(ball.position.y-mines[i].position.y>=-0.4)
+        {
+            ball.position.y-=0.01;
+            ball.speedy=0;
+            ball.accelaration=-0.001;
+            break;
+        }
     }
     else
     {
@@ -286,19 +284,14 @@ void tick_elements() {
     else if(groundflag==0 && obsflag==0 && moveUp==0)
     {
 
-        ball.speedy=0.03;
+        ball.speedy=0.07;
     }
-//    else if(obsflag==1)
-//    {
-//        obsflag=0;
-//        ball.speedy=0.03;
-//    }
     else if(int coll=detect_collision_side()!=0 && gcoll==0)
     {
         if(coll=1){moveLeft=1;moveRight=0;}
         else {moveRight=1;moveLeft=0;}
         ball.speedx=0;
-        ball.speedy=0.03;
+        ball.speedy=0.07;
     }
     if(ball.position.y<=-2.0+1.9*(maxReached-2.5))
     {
@@ -306,7 +299,6 @@ void tick_elements() {
         for(int i=0;i<no_obstacles;i++)
             if(collision_flag[i]==1)score++;
         printf("%d\n",score);
-        //floatsleep(0.25);
         quit(window);
     }
     if(mine_lives==0)
@@ -328,46 +320,39 @@ void initGL(GLFWwindow *window, int width, int height) {
     // Create the models
     srand((unsigned int)time(NULL));
     ball       = Ball(0, -1.5, COLOR_RED);
-    ball.speedy=0.03;
+    ball.speedy=0.07;
     ground = Ground(0,0,COLOR_GREEN);
-    mag1i=(float)rand()/(float)(RAND_MAX/(-2.0+(1.9*(float)no_obstacles)));
-    mag2i=(float)rand()/(float)(RAND_MAX/(-2.0+(1.9*(float)no_obstacles)));
-    mag3i=(float)rand()/(float)(RAND_MAX/(-2.0+(1.9*(float)no_obstacles)));
-    mag1=Magnet(-4,mag1i,COLOR_BLACK);
-    mag2=Magnet(-4,mag2i,COLOR_BLACK);
-    mag3=Magnet(-4,mag3i,COLOR_BLACK);
-//    obstacles[0] = Obstacle(-1.5,-2.0,COLOR_BLACK);
-//    obstaclesOrigin[0]=-1.5;
-//    obstacles[0].speed=0.02;
-//    obstacles[1] = Obstacle(2.5,-0.1,COLOR_BLACK);
-//    obstaclesOrigin[1]=2.5;
-//    obstacles[1].speed=0.02;
+    for(int i=0;i<no_magnets;i++)
+    {
+        magnetsOrigin[i]=(float)rand()/(float)(RAND_MAX/(-2.0+(1.9*(float)no_obstacles)));
+        magnets[i]=Magnet(-4,magnetsOrigin[i],COLOR_BLACK);
+    }
 
-    i1=(int)((float)rand()/(float)(RAND_MAX/15.0));
-    i2=(int)((float)rand()/(float)(RAND_MAX/15.0));
-    i3=(int)((float)rand()/(float)(RAND_MAX/15.0));
-    //i1=1;
     float yinitial=-2.0;
     for(int i=0;i<no_obstacles;i++)
     {
-        float x = (float)rand()/(float)(RAND_MAX/5.0);
+        float x = (float)rand()/(float)(RAND_MAX/2.5);
         if(i==0)
         {
-            while(x>=0.8 || x<=-0.8)x = (float)rand()/(float)(RAND_MAX/5.0);
+            x=2;
         }
-        if(abs(yinitial-mag1i)<=0.7||abs(yinitial-mag2i)<=0.7||abs(yinitial-mag3i)<=0.7)x=2.5+(float)rand()/(float)(RAND_MAX);
+        if(i%2==1)x*=-1;
+        for(int j=0;j<no_magnets;j++)
+            if(abs(yinitial-magnetsOrigin[j])<=1.0)
+                x=1+(float)rand()/(float)(RAND_MAX);
         if(i==i1-1||i==i2+14||i==29+i3)
         {
-            obstacles[i] = Obstacle(x-2.5,yinitial,COLOR_TRAMPOLINE);
-            if(x-2.5>=0)obstacles[i].rotation=22.5;
+            obstacles[i] = Obstacle(x,yinitial,COLOR_TRAMPOLINE);
+            if(x>=0)obstacles[i].rotation=22.5;
             else obstacles[i].rotation=-22.5;
         }
         else
         {
-            obstacles[i] = Obstacle(x-2.5,yinitial,COLOR_OBSTACLE);
+            obstacles[i] = Obstacle(x,yinitial,COLOR_OBSTACLE);
         }
-        obstaclesOrigin[i]=x-2.5;
+        obstaclesOrigin[i]=x;
         float spd = (float)rand()/(float)(RAND_MAX/0.03);
+        if(i%2==1)spd*=-1;
         obstacles[i].speed=spd;
         yinitial+=1.9;
     }
@@ -430,6 +415,11 @@ int main(int argc, char **argv) {
             // 60 fps
             // OpenGL Draw commands
             draw();
+            char sc[100]={};
+            sprintf(sc,"Score:%d",globalScore);
+            glfwSetWindowTitle(window,sc);
+//            One o=One(0.5,0.5,COLOR_WHITE);
+//            o.draw(VP);
             // Swap Frame Buffer in double buffering
             glfwSwapBuffers(window);
 
