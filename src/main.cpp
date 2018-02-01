@@ -21,12 +21,13 @@ color_t COLOR_OBSTACLE = { 153,102,255 };
 color_t COLOR_TRAMPOLINE = {102, 153, 255 };
 color_t COLOR_MINE = { 255, 0, 102 };
 color_t COLOR_WHITE = {255,255,255};
+color_t COLOR_POWERUP={255, 204, 0};
 
 Ball ball;
 Ground ground;
 float screen_zoom = 1, screen_center_x = 0, screen_center_y = 0;
 Timer t60(1.0 / 60);
-int i1,i2,i3;
+
 int moveLeft=0;
 int moveRight=0;
 int moveUp=0;
@@ -46,11 +47,17 @@ Obstacle obstacles[50];
 float obstaclesOrigin[50];
 int collision_flag[50]={0};
 int firstjump=0;
-int jumps_avail=5;
+int jumps_avail=4;
 float maxReached;
 
 Mine mines[20];
 float minesOrigin[20];
+
+
+int no_power=5;
+int no_tramp=5;
+int TrampOrigin[5];
+int PowerOrigin[5];
 
 Magnet mag1,mag2,mag3;
 float mag1i,mag2i,mag3i;
@@ -196,17 +203,26 @@ void tick_elements() {
             moveUp=1;
             obstacles[i].set_position(-5.0,-5.0);
             globalScore++;
-            if(i==i1-1||i==i2+14||i==i3+29)
+            for(int j=0;j<no_tramp;j++)
+            {
+            if(i==TrampOrigin[j])
             {
                 float theta=obstacles[i].rotation;
                 float osx=ball.speedx;
                 float osy=ball.speedy;
                 ball.speedx=osx*(1-tan(M_PI_2-(theta*M_PI/180)))+osy*(-1+tan((theta*M_PI/180)));
                 ball.speedy=(osx*(1+tan(M_PI_2-(theta*M_PI/180)))+osy*(1+tan((theta*M_PI/180))))-0.03;
+                if(theta>=0 && ball.speedx<=0)ball.speedx*=-0.4;
+                if(theta<=0 && ball.speedx>=0)ball.speedx*=-0.4;
             }
             else
             {
                 ball.speedy=-0.07;
+            }
+            }
+            for(int j=0;j<no_power;j++)
+            {
+            if(i==PowerOrigin[j])jumps_avail+=3;
             }
             maxReached=(float)i;
             break;
@@ -293,7 +309,7 @@ void tick_elements() {
         ball.speedx=0;
         ball.speedy=0.07;
     }
-    if(ball.position.y<=-2.0+1.9*(maxReached-2.5))
+    if(ball.position.y<=-2.0+1.9*(maxReached-7.0))
     {
         int score=0;
         for(int i=0;i<no_obstacles;i++)
@@ -322,12 +338,15 @@ void initGL(GLFWwindow *window, int width, int height) {
     ball       = Ball(0, -1.5, COLOR_RED);
     ball.speedy=0.07;
     ground = Ground(0,0,COLOR_GREEN);
+    for(int i=0;i<no_tramp;i++)
+        TrampOrigin[i]=(int)(rand()/(float)(RAND_MAX/(float)no_obstacles));
+    for(int i=0;i<no_power;i++)
+        PowerOrigin[i]=(int)(rand()/(float)(RAND_MAX/(float)no_obstacles));
     for(int i=0;i<no_magnets;i++)
     {
         magnetsOrigin[i]=(float)rand()/(float)(RAND_MAX/(-2.0+(1.9*(float)no_obstacles)));
         magnets[i]=Magnet(-4,magnetsOrigin[i],COLOR_BLACK);
     }
-
     float yinitial=-2.0;
     for(int i=0;i<no_obstacles;i++)
     {
@@ -340,13 +359,26 @@ void initGL(GLFWwindow *window, int width, int height) {
         for(int j=0;j<no_magnets;j++)
             if(abs(yinitial-magnetsOrigin[j])<=1.0)
                 x=1+(float)rand()/(float)(RAND_MAX);
-        if(i==i1-1||i==i2+14||i==29+i3)
+        int not_normal=0;
+        for(int j=0;j<no_tramp;j++)
+        {
+        if(i==TrampOrigin[j])
         {
             obstacles[i] = Obstacle(x,yinitial,COLOR_TRAMPOLINE);
             if(x>=0)obstacles[i].rotation=22.5;
             else obstacles[i].rotation=-22.5;
+            not_normal=1;
         }
-        else
+        }
+        for(int j=0;j<no_power;j++)
+        {
+        if(i==PowerOrigin[j])
+        {
+            obstacles[i] = Obstacle(x,yinitial,COLOR_POWERUP);
+            not_normal=1;
+        }
+        }
+        if(not_normal==0)
         {
             obstacles[i] = Obstacle(x,yinitial,COLOR_OBSTACLE);
         }
@@ -415,8 +447,8 @@ int main(int argc, char **argv) {
             // 60 fps
             // OpenGL Draw commands
             draw();
-            char sc[100]={};
-            sprintf(sc,"Score:%d",globalScore);
+            char sc[501]={};
+            sprintf(sc,"Score:%d Jumps:%d",globalScore,jumps_avail);
             glfwSetWindowTitle(window,sc);
 //            One o=One(0.5,0.5,COLOR_WHITE);
 //            o.draw(VP);
